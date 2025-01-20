@@ -1,0 +1,203 @@
+---
+title: "Banque de prénoms"
+subtitle: "Données Québec - Retraite Québec"
+date: last-modified
+lang: fr
+format: 
+  revealjs:
+    embed-resources: true
+    footer: Igor Souza (https://github.com/igortadeu)
+    theme: solarized
+editor: visual
+execute: 
+  echo: false
+---
+
+```{r package}
+
+library(readr)
+library(dplyr)
+```
+
+## Introduction
+
+-   Projet personnel du week-end par [**Igor Souza**](https://github.com/igortadeu){target="_blank"};
+
+-   La préparation des données a été réalisée avec [R](https://www.r-project.org/ "The R Project for Statistical Computing"){target="_blank"}, la présentation avec [Quarto](https://quarto.org/ "An open-source scientific and technical publishing system"){target="_blank"}, et les graphiques avec [Observable JS](https://observablehq.com/plot/ "The JavaScript library for exploratory data visualization"){target="_blank"}.
+
+## Banque de prénoms[^1]
+
+[^1]: Retraite Québec - Banque de prénoms: \[<https://www.retraitequebec.gouv.qc.ca/fr/services-en-ligne-outils/banque-de-prenoms/Pages/banque-de-prenoms.aspx>\].
+
+> Liste des prénoms féminins \[et masculins\] des enfants admissibles aux prestations familiales depuis 1980, incluant les bébés naissants vivant au Québec ou ayant immigrés au Québec.[^2]
+
+[^2]: RETRAITE QUÉBEC. Banque de prénoms - Filles, \[Jeu de données\], dans Données Québec, 2015, mis à jour le 27 decembre 2024. \[<https://www.donneesquebec.ca/recherche/dataset/banque-de-prenoms-filles>\], (consulté le 19 janvier 2025).
+
+```{ojs var}
+//| output: false
+data
+```
+
+## Les données
+
+```{ojs data}
+
+data = FileAttachment("Resources\\filles-gars_1980-2023.csv").csv({ typed: true })
+
+Inputs.table(data, {
+  rows: 20,
+  columns: [
+    "gender",
+    "first_name",
+    "N",
+    "year"
+  ],
+  header: {
+    gender: "Sexe",
+    first_name: "Prénom",
+    N: "Fréquence",
+    year: "An"
+  },
+  format: {
+    year: x => x.getFullYear()
+  },
+  sort: "year", 
+  reverse: true,
+  width: "auto"
+})
+```
+
+::: {.callout-note appearance="minimal" icon="false"}
+Seuls les prénoms ayant 12 occurrences ou plus par an (au moins 1 par mois) ont été conservés dans l'ensemble de données.
+:::
+
+```{ojs vals}
+
+yr = new Set (data.map(item => item.year.getFullYear()))
+max = Math.max(...Array.from(yr))
+min = Math.min(...Array.from(yr))
+```
+
+## Les 20 prénoms les plus populaires par année et par sexe
+
+```{ojs bar_filter}
+
+bar_filtered = data.filter(function(temp){
+  if (gender === "Les deux") { 
+    return year === temp.year.getFullYear() 
+  } 
+  else { 
+    return year === temp.year.getFullYear() && 
+    gender === temp.gender 
+  }
+})
+```
+
+```{ojs bar_input}
+//| panel: sidebar
+
+viewof year = Inputs.range(
+  [min, max],
+  {value: max, step: 1, label: "An:"}
+)
+
+viewof gender = Inputs.radio(
+  ["Filles", "Garçons", "Les deux"],
+  {value: "Les deux", label: "Sexe:"}
+)
+```
+
+```{ojs bar_plot}
+//| panel: center
+
+Plot.plot({
+  x: {
+    label: "Fréquence"
+  },
+  y: { 
+    label: "Prénom"
+  },
+  marginLeft: 80,
+  //caption: "Source: Retraite Québec. Banque de prénoms.",
+  color: { 
+    domain: ["Filles", "Garçons"],
+    range: ["#F7ABD5", "#D2EFFB"]
+  },
+  marks: [
+    Plot.barX(bar_filtered, {
+      x: "N",
+      y: "first_name",
+      sort: { y: "x", reverse: true, limit: 20 },
+      fill: "gender"
+    }),
+    
+    Plot.text(bar_filtered, {
+      text: (d) => `${d.N}`,
+      x: "N",
+      y: "first_name",
+      textAnchor: "end",
+      dx: -3
+    })
+  ]
+})
+```
+
+## Taux de croissance annuel
+
+```{ojs line_filter}
+
+line_filtered = data.filter(function(temp){
+  return first_name.includes(temp.first_name)
+})
+```
+
+```{ojs line_input}
+//| panel: sidebar
+
+viewof first_name = Inputs.select(data.map(d => d.first_name), {multiple: 5, sort: true, unique: true, label: "Prénom:"})
+```
+
+```{ojs line_plot}
+//| panel: center
+
+Plot.plot({
+  x: {
+    label: "An",
+    domain: [new Date(min-2, 12, 31), new Date(max+2, 12, 31)],
+    grid: true
+  },
+  y: {
+    grid: true,
+    label: "Pourcentage",
+    labelOffset: 50,
+    tickFormat: ",.1f",
+    percent: true
+  },
+  marginLeft: 80,
+  //caption: "Source: Retraite Québec. Banque de prénoms.",
+  color: { 
+    type: "categorical",
+    scheme: "paired",
+    legend: true
+  },
+  marks: [
+    Plot.ruleY([0]),
+    Plot.lineY(line_filtered, {
+      x: "year", 
+      y: "pct",
+      stroke: "first_name",
+      marker: "circle",
+      sort: (d) => d.year
+    }),
+    Plot.text(line_filtered, {
+      filter: (d) => d.pct != NaN, x: "year", y: "pct",
+      text: (d) => `${Math.round(d.pct*100)}%`,
+      dy: -8
+    }),
+  ]
+})
+```
+
+## Conclusion
+
+**MERCI!**
